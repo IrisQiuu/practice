@@ -1,0 +1,84 @@
+---
+title: "Golfball"
+author: "Chenyu Qiu"
+date: "1/27/2019"
+output:
+  html_document
+---
+
+##1. Backgroud
+  This is a simulation of 486 golf balls that randomly landed in Allan Rossman's yard. These golf balls were classified into 4 groups based on the numbers on those golf balls. The aim of this simulation is to test whether the numbers 1, 2, 3, and 4 is equally likely. The original distribution of the golf balls were as following:
+  
+```{r}
+# Set up the table of Allan's
+numbers <- c(1, 2, 3, 4)
+dist_original <- c(137, 138, 107, 104)
+sample_original <- data.frame(numbers, dist_original)
+sample_original
+```
+
+##2. Hypothsis Test
+  Null Hypothsis: The numbers on the golfballs are uniformly distributed.
+  Alternative Hypothesis: At least one number's distribution is different from others.
+
+#(a) Test Statisitcs 1: The range between the highest and lowest number in the four cells of the table.
+
+```{r,simulation}
+set.seed(2019)
+# Set up some variables
+NumberOfGolfBalls<-486; NumberOfSamples<-10000; HighestNumberSeen<-4
+# Generate a set of golf balls numbers from a uniform distribution
+SampleGolfBalls<-function(HowMany,HighestNumber){
+  SupposedPopulation<-1:HighestNumber
+  Sample<-sample(SupposedPopulation,size=HowMany,replace=TRUE)
+  return (Sample)
+}
+# The funtion to return the range of the number distribution
+TestStatistic<-function(BallVector){
+  t<-table(BallVector)
+  range <- max(t)-min(t)
+  return (range)  
+}
+#Simulate values of the test statistic under the null hypothesis
+range_simu <- rep(0,NumberOfSamples)
+for (i in 1:NumberOfSamples){
+  ThisSample<-SampleGolfBalls(NumberOfGolfBalls,HighestNumberSeen)
+  range_simu[i] <- TestStatistic(ThisSample)
+}
+# The plots and results
+hist(range_simu,breaks=50)
+range_original <- 138-104 #The range of original distribution
+abline(v=range_original,col='red',lwd=4)
+Count_range <- (range_simu>34)
+cat("\n There are",sum(Count_range)," values greater than that seen in our observed dataset.")
+cat("\n So our p-value for testing the range is: ",sum(Count_range)/NumberOfSamples)
+```
+Conclusion: The p-values is greater than 0.05, which indicates we cannot comfirm the observed test statistic value (the range between the highest and lowest number in the four cells of the table) falls in the tails of the null distribution. Therefore, we fail to reject the null hypothesis that the numbers on the balls are uniformly distributed.
+
+
+
+#(b) Test Statistics: The Variance of the four ball numbers
+
+```{r, simulate}
+set.seed(2019)
+# Set up some variables
+sd_simu<- rep(0, NumberOfSamples)
+#Simulate values of the test statistic under the null hypothesis
+for (i in 1:NumberOfSamples){
+  ThisSample<-SampleGolfBalls(NumberOfGolfBalls,HighestNumberSeen)
+  dat <- table(ThisSample)
+  sd_simu[i]<- sd(dat)           
+}
+# The plot and result
+hist(sd_simu,breaks=50)           
+sd_original = sd(sample_original$dist_original)# The sd of original distribution
+abline (v=sd_original,col='red',lwd=4)
+Count_sd <- (sd_simu>sd_original)
+cat("\n There are",sum(Count_sd)," values greater than that seen in our observed dataset.")
+cat("\n So our p-value for testing sd is: ",sum(Count_sd)/NumberOfSamples)
+```
+Conclusion: The test results indicates the var of original dataset falls in the tail part of the null distribution. Therefore, we should reject the null hypothesis (p<0.05).
+
+
+
+   
