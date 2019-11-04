@@ -1,0 +1,115 @@
+---
+title: "The Art Show"
+author: "Chenyu Qiu"
+date: "2/19/2019"
+output: html_document
+---
+### (1) Introduction:
+  This is a fractal drawn by implementing the Newton Raphson method on complex plain. The different colors in this plot are decided by the roots of function. The function of my plot is f(z)=z^(5)-z^(9)-0.098, and the derivative equation is f'(z)=5*(z^(4))-9*z^(8). Besides, we also learned how to use profile and several methods to speed up our code, such as getting rid of "cat", "rbind" and loops. It's very helpful in time saving. 
+  
+### (2) Program:
+```{r}
+library(future.apply)
+plan(multicore)
+
+# Set up a variable to control whether record roots or the number of iterations taken
+# Set <-1 to record which root is found, or <- 0 to record number of iterations needed
+bRootOrIterations <- 0   
+
+# Newton-Raphson Function
+TwoDNewtonRaphson <- function(func, StartingValue, Tolerance, MaxNumberOfIterations) {
+  i <- 0                                                    # Set up i to count the iterations
+  NewZ <- StartingValue                                     # The complex number 'StartingValue'
+  Deviation = abs(func(StartingValue)[1])                   # Work out how far away from (0,0) func(NewZ) is.
+  
+#Set up a loop until we hit the required target accuracy or the max. number of steps
+  while ((i < MaxNumberOfIterations) && (Deviation > Tolerance)) {
+    # Find the next Z-value using Newton-Raphson's formula
+    Z <- func(NewZ)    
+    #Z[1] is the is the value of the function; Z[2] is its derivative
+    if ((Z[1] == "NaN") || (Z[2] == "NaN")) {
+      cat("Function or derivative not defined error.")
+      cat("\n", NewZ, Z)
+      break
+    }
+    # Calculate the next Z: Z(n+1) <- Z(n)-f(Z(n))/f'(z(n))
+    NewZ <- NewZ - Z[1] / Z[2]
+    # Calculate how far f(z) is from 0
+    NewVal <- func(NewZ)
+    Deviation <- abs(NewVal[1])
+    i <- i + 1
+    #cat(paste("\nIteration ",i,":   Z=",NewZ,"  Devn=",Deviation))
+  }
+  # output the result
+  if (Deviation > Tolerance) {
+    cat(paste("\nConvergence failure. Deviation:", Deviation, "after ", i, 	"iterations"))
+  }
+  
+  # Check which root it converged to
+  if (bRootOrIterations == 1) {
+    return(NewZ)
+  } else {
+    return(c(i, i))
+  }
+}
+
+# The function to check whether two points are close together
+CloseTo <- function(x, y) {
+  if (abs(x - y) < 0.1) {
+    # returns 1 if x is close to y
+    return(1)                               
+  } else {
+    return(0)
+  }
+}
+
+# The function to draw a pic
+Root_calculator <- function(Funcn, xmin, xmax, xsteps, ymin, ymax, ysteps) {
+  # Define a grid of x and y coordinates over which to run Newton-Raphson.
+  x <- seq(xmin, xmax, length.out = xsteps)
+  y <- seq(ymin, ymax, length.out = ysteps)
+  out_dat <- expand.grid(x = x, y = y)
+  ThisZ <- complex(1, out_dat$x, out_dat$y)
+  Root <- future_sapply(ThisZ,
+                        FUN = TwoDNewtonRaphson,
+                        func = Funcn,
+                        Tolerance = 1e-1,
+                        MaxNumberOfIterations = 100)
+  if(bRootOrIterations == 0) {
+    out_dat$color <- 261 + 5 * Root[1, ]
+    out_dat$root1 <- Root[1, ]
+    out_dat$root2 <- Root[2, ]
+  } else {
+    out_dat$color <- 261 + 5 * Root
+    out_dat$root1 <- Root
+  }
+  return(out_dat)
+}
+
+# Set up function and graphics parameter
+root_plotter <- function(x, xmin, xmax, ymin, ymax, PtSize = 0.25) {
+  plot(x[, 1:2], col = x[, 3],
+       xlim = c(xmin, xmax), ylim = c(ymin, ymax),
+       pch = 8, cex = PtSize * 3)
+}
+
+# Define a function to return f(z) & f'(z)
+F7<-function(z){
+  return(c(z^(5)-z^(9)-0.098, 5*(z^(4))-9*z^(8))) 
+}
+
+#Using the viridis package
+library(viridis)
+palette(viridis(129))
+# Time counting
+start_time <- Sys.time()
+# Call the root calculator function and plotter function
+A <- Root_calculator(F7, -2.7, 1, 100, -1.3, 1.3, 100)
+root_plotter(A, -2.7, 1, -1.3, 1.3, 0.25)
+end_time <- Sys.time()
+cat("\n t=", end_time - start_time)
+
+plan(sequential)
+```
+### (3) The name of plot:
+The Sparkling Sea
