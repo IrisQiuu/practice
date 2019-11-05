@@ -1,10 +1,11 @@
 ---
-title: "Assignment4"
+title: "Bayesian Importance Sampling"
 author: "Chenyu Qiu"
 date: "4/21/2019"
 output:
   html_document: default
 ---
+## 1. Sample from Dunif:
 ### (1) Introduction:
 Draw balls from a urn model which start with 2 red balls of weight 1 and 1 black ball of weight w (sample w from a uniform distribution[0,20]). keep drawing balls until we have 10 non-black balls. Calculate the posterior distribution of the weight of the black ball when all non-black balls are the same color at the end.
 
@@ -59,3 +60,40 @@ cat("\n t=", end_time1 - start_time1, "minutes")
 # plot the histogram
 hist(AcceptedWeights, breaks = 50)  
 ```
+
+## 2. Sample from Expo:
+### (1) Introduction:
+This time, we keep almost the same setting as 1, except for sampling w from a exponential distribution instead of an uniform distribution. This is a Bayesian Importance Sampling.
+Iterate the following steps to genernate the sampling: 
+-Sample theta' from important sampling distribution f(theta), and simulate data D’ using theta'.
+-Accept theta' if D’=D. Otherwise reject theta' and return to 1. 
+-Add a point with (Importance Sampling) weight of pi(theta)/f(theta) to the posterior at theta'. 
+
+### (2) Program:
+```{r}
+library(RGeode)
+# here's the loop for the Bayesian Importance Sampling
+AcceptedWeights_b<-rep(-9,NoReps)
+start_time2 <- Sys.time()
+for (i in 1:NoReps){
+    HowManyColorsObserved<- -9  
+    while (HowManyColorsObserved != HowManyColorsNeeded) {
+        ThisWeight<- rexptr(1, 1, c(0,20))  # Sample a weight from exponential distribution
+        MyUrn<-Urn(ThisWeight,NoOfBalls)  # simulate the urn using this weight
+        HowManyColorsObserved<-NumberColors(MyUrn)  # count how many colors in the urn
+    }
+    AcceptedWeights_b[i]<-ThisWeight  #save the weight
+}
+end_time2 <- Sys.time()
+cat("\n t=", end_time2 - start_time2,"seconds")
+
+# plot the histogram
+library(weights)
+library(Rcpp)
+wgt <- (1/20)/(exp(-AcceptedWeights_b)/(1-exp(-20)))
+par(mfrow=c(2, 2)) # 2x2 plots
+wtd.hist(AcceptedWeights_b,main="Weights all 1", breaks = 50)  # by defaults, the weights are set to 1
+wtd.hist(AcceptedWeights_b, weight=wgt,main="Weights given by wgt", breaks = 50)  # use the weights given by wgt
+wtd.hist(AcceptedWeights_b, weight=AcceptedWeights_b,main="Weights given by AcceptedWeights_b", breaks = 50)  # And now weights are given by AcceptedWeights_b
+```
+Sampling from a exponential distribution is much more efficient than sampling from a uniform distribution as the posterior distribution of the w is extraordinary similar with the exponential distribution.
