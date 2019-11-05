@@ -1,0 +1,149 @@
+---
+title: "gamma"
+author: "Chenyu Qiu"
+date: "3/25/2019"
+output: html_document
+---
+
+##1. Using MCMC to produce samples from a Gamma random variable
+```{r}
+# IndeptGamma
+# metropolis-hastings independence sampler for a gamma based on normal candidates with the same mean and variance
+# Code taken from http://www.mas.ncl.ac.uk/~ndjw1/teaching/sim/metrop/indep.r
+gamm<-function (n, a, b) {
+  # calculate the mean and the sd of the gamma distribution
+  mu <- a/b
+  sig <- sqrt(a/(b * b))
+  vec <- vector("numeric", n)
+  # propose a start
+  x <- a/b
+  vec[1] <- x
+  # do metropolis-hastings independence sampler
+  for (i in 2:n) {
+    can <- rnorm(1, mu, sig)
+    aprob <- min(1, (dgamma(can, a, b)/dgamma(x, a, b))/(dnorm(can, mu, sig)/dnorm(x, mu, sig)))
+    u <- runif(1)
+    if (u < aprob) 
+    x <- can
+    vec[i] <- x
+  }
+  vec
+}
+```
+
+###1.1 Gamma(2.3,2.7)
+```{r}
+set.seed(37)
+#Call the function
+vec1<-gamm(10000,2.3,2.7)
+vec1_1<-gamm(10000,2.3,2.7)
+# get the plots
+par(mfrow=c(2,2))
+plot(ts(vec1)); plot(ts(vec1_1))
+plot(ts(vec1)[1:1000],type='l')
+plot(ts(vec1_1)[1:1000],type='l')
+acf(vec1,lag.max = 50)
+acf(vec1_1,lag.max = 50)
+hist(vec1[1000:10000],30)
+hist(vec1_1[1000:10000],30)
+
+# Gelman code
+library("coda")
+MCMC1_1 = mcmc(vec1,start = 1000)
+MCMC1_2= mcmc(vec1_1,start = 1000)
+combined1=mcmc.list(list(MCMC1_1,MCMC1_2))
+gelman.plot(combined1)
+gelman.diag(combined1)
+
+```
+
+###1.2 Gamma(0.1,0.01)
+```{r}
+set.seed(37)
+#Call the function
+vec2<-gamm(10000,0.1,0.01)
+vec2_1<-gamm(10000,0.1,0.01)
+# get the plot
+par(mfrow=c(2,2))
+plot(ts(vec2));plot(ts(vec2_1))
+plot(ts(vec2)[1:1000],type='l')
+plot(ts(vec2_1)[1:1000],type='l')
+acf(vec2,lag.max = 500)
+acf(vec2_1,lag.max = 500)
+hist(vec2[1000:10000],30)
+hist(vec2_1[1000:10000],30)
+
+# Gelman code
+library("coda")
+MCMC2_1 = mcmc(vec2,start = 1000)
+MCMC2_2= mcmc(vec2_1,start = 1000)
+combined2=mcmc.list(list(MCMC2_1,MCMC2_2))
+gelman.plot(combined2)
+gelman.diag(combined2)
+
+```
+
+According to the Gelman plot, the point estimate of potential scale reduction factor is 1.08 (upper CI is 1.22). The time series plots of both sampling show it is not stationary and always stucked at low values. To fix the sampling, we have to find a new kernel q to produce better candidate values. Compare with the Gamma(2.3,2.7), the curves of dgamma(x,0.1,0.01) and dnorm(x,0.1/0.01,sqrt(0.1/(0.01^2))) indicate these two distribution are in poor relevance, but the curve of dnorm(x,0,1) suggests it might be a nice choice to improve the sampling.
+
+```{r}
+#The curve of Gamma(2.3,2.7)
+curve(dgamma(x,2.3,2.7),from=0,to=3)
+curve(dnorm(x,2.3/2.7,sqrt(2.3/(2.7^2))),from=0,to=3,add=TRUE,col="blue")
+#The curve of Gamma(0.1,0.01)
+curve(dgamma(x,0.1,0.01),from=0,to=40)
+curve(dnorm(x,0.1/0.01,sqrt(0.1/(0.01^2))),add=TRUE,col="blue")
+curve(dnorm(x,0,1),add=TRUE,col="red")
+```
+
+###1.3 Improve the performance of Gamma(0.1,0.01)
+```{r}
+# New function 
+gamm_new<-function (n, a, b){
+  mu <- a/b   # the mean of the gamma distribution
+  sig <- sqrt(a/(b * b))   # the stadard deviation of the gamma distribution
+  vec <- vector("numeric", n)   
+  x <- a/b 
+  vec[1] <- x # We arbitrarily start the MCMC process at the mean
+  for (i in 2:n){
+    can <- rnorm(1, mu, sig)
+    A <- (dgamma(can, a, b)/dgamma(x,a,b))/(dnorm(can, mu, sig)/dnorm(x, mu, sig))
+    # Fix the q
+    PAdd <- rnorm(1)
+    if (can>x){
+     A=A*(1-PAdd)/PAdd
+     }else{
+      A=A*PAdd/(1-PAdd)
+    }
+    hprob <- min(1, A)
+    u <- runif(1,0,1)
+    if (u < hprob) 
+      x <- can
+    vec[i] <- x
+  }
+  return (vec)
+}
+
+set.seed(2018)
+#Call the function
+vec3<-gamm_new(10000,0.1,0.01)
+vec3_1<-gamm_new(10000,0.1,0.01)
+# get the plot
+par(mfrow=c(2,2))
+plot(ts(vec3)); plot(ts(vec3_1))
+plot(ts(vec3)[1:1000],type='l')
+plot(ts(vec3_1)[1:1000],type='l')
+acf(vec3,lag.max = 100)
+acf(vec3_1,lag.max = 100)
+hist(vec3[1000:10000],30)
+hist(vec3_1[1000:10000],30)
+
+# Gelman code
+library("coda")
+MCMC3_1 = mcmc(vec3,start = 1000)
+MCMC3_2 = mcmc(vec3_1,start = 1000)
+combined3=mcmc.list(list(MCMC3_1,MCMC3_2))
+gelman.plot(combined3)
+gelman.diag(combined3)
+```
+According to the Gelman plot, the new point estimate of potential scale reduction factor is 1.0 (upper CI is 1.0) which indicates the variance of the parameter distribution in the
+two chains is very small. Besides, the time series plot is stationary than before and the acf plots show the correlation between x(1) and x(80) is almost 0. The histograms also show there's a improvement in the performance. 
