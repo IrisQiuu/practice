@@ -1,0 +1,90 @@
+---
+title: "Code-Breaking"
+author: "Chenyu Qiu"
+date: "3/25/2019"
+output: html_document
+---
+
+###1 Introduction:
+  "codedmessage_1.txt" is a simple substitution coded message. We intend to use the paired frequency listed in "LetterPairFreqFrom7Novels.txt" to decode the whole message. Let the frequency of AB denote the frequency with which the letter pair AB is observed in text and frequency of A denote the frequency that the letter A is observed in the text. P(ABCD)= P(A) * [P(AB)/P(A)] * [P(BC)/P(B)] * [P(CD)/P(C)]. Then we maximize the P(x) by Metropolis Algorithm:
+  (1) Let x be the current state of the system;
+  (2) Iterate the following:
+        – Propose move from old state x to new state x’ according to a proposal
+        – Calculate h= min{1,f(x’)/f(x)}
+        – Move to x’ with prob. h, else remain at x.
+        
+###2 Code:      
+```{r}
+# read coded message
+setwd("~/Desktop/520/week6")
+input2 <- readLines("codedmessage_1.txt",n=1000)
+input <- toupper(input2[1])
+
+# read frequency table
+PairsFreqs <- read.table("LetterPairFreqFrom7Novels.txt")
+colnames(PairsFreqs)=c(toupper(letters))
+rownames(PairsFreqs)=c(toupper(letters))
+# calculate P(AB)/P(A)
+PairsProb=PairsFreqs/rowSums(PairsFreqs)
+
+# refresh the input by proposed letter sequence
+Fixed.Input <- function(LetterSequence,input) {
+  input=toupper(input)
+  FixedInput=input
+  for (i in 1:nchar(input)) {
+    if (substring(input,i,i) %in% toupper(letters)) {
+      substring(FixedInput,i,i)=toupper(letters[LetterSequence==substring(input,i,i)])
+    }
+  }
+  FixedInput
+}
+
+# calculate the probability of fixed input. Since the product of P(AB)/P(A) could be a very small number, we use the sum of log(P(AB)/P(A)) to do the calculation.
+prob <- function(LetterSequence,FixedInput){
+  logprob=0
+  for (i in 1:(nchar(FixedInput)-1)) {
+    curletter=substring(FixedInput,i,i)
+    nextletter=substring(FixedInput,i+1,i+1)
+    if ((curletter %in% toupper(letters))&&(nextletter %in% toupper(letters))) {
+      logprob=logprob+log(PairsProb[rownames(PairsProb)==curletter,colnames(PairsProb)==nextletter])
+    }
+  }
+  return(logprob)
+}
+
+set.seed(2018)
+# start with generating a random letter sequence
+LetterSequence=sample(toupper(letters)) 
+i=0; MaxNumberOfIterations=100
+cur.input=Fixed.Input(LetterSequence,input)
+cur.Prob=prob(LetterSequence,cur.input)
+max.Prob=cur.Prob
+
+# do Metropolis Algorithm
+while (i<=MaxNumberOfIterations) {
+  # switch 2 letters randomly
+  proposal=sample(1:26,2) 
+  new.LetterSequence=LetterSequence
+  new.LetterSequence[proposal[1]]=LetterSequence[proposal[2]]
+  new.LetterSequence[proposal[2]]=LetterSequence[proposal[1]]
+  # get a new input
+  new.input=Fixed.Input(new.LetterSequence,input)
+  # calculate the new probability
+  new.Prob=prob(new.LetterSequence,new.input)
+  h=min(1,exp(new.Prob-cur.Prob))
+  p=runif(1)
+  if (p<h) { # replace the cur.input by new.input
+    LetterSequence=new.LetterSequence
+    cur.input=new.input
+    cur.Prob=new.Prob
+    # record the input when we get the the maximum probability
+    if (cur.Prob>max.Prob)
+      max.input=cur.input
+    # check the cur.probability
+    #cat("\n iteration = ",i,"cur.Prob = ",cur.Prob)
+    i=i+1
+  }
+}
+cat("\n The result for code breaking is: ",max.input)
+
+```
