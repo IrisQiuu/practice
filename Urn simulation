@@ -1,0 +1,61 @@
+---
+title: "Assignment4"
+author: "Chenyu Qiu"
+date: "4/21/2019"
+output:
+  html_document: default
+---
+### (1) Introduction:
+Draw balls from a urn model which start with 2 red balls of weight 1 and 1 black ball of weight w (sample w from a uniform distribution[0,20]). keep drawing balls until we have 10 non-black balls. Calculate the posterior distribution of the weight of the black ball when all non-black balls are the same color at the end.
+
+### (2) Program:
+```{r}
+NoReps<-10000   # how many samples to generate
+HowManyColorsNeeded<-1   # the "target" we have to hit (what we saw in an observed dataset)
+MaxWeight<-20    # the maximum weight we will consider for the black/mutation ball 
+NoOfBalls<-10    # the number of non-black balls we want in the urn at the end
+AcceptedWeights<-rep(-9,NoReps)   
+
+# write a function to simulate the Urn
+Urn<-function(MutationBallWeight,TotalNumberOfBallsNeeded){
+  # Initialize the Urn
+  Urn <- c(1,1)
+  NumberOfBalls <- length(Urn)
+  while (NumberOfBalls < TotalNumberOfBallsNeeded){
+    prob.B <- MutationBallWeight/(MutationBallWeight+NumberOfBalls) # the probability of drawing black ball   
+    if (runif(1,0,1) <= prob.B){# draw a black ball from the urn
+      whichball2 = sample(1:NumberOfBalls,1)
+      Urn[whichball2] <- max(Urn)+1 # add a new ball to the Urn after changing its color
+      NumberOfBalls = NumberOfBalls # number of balls does not change in this situation
+     }else{  # draw non-black balls
+      whichball = sample(Urn,1)
+      Urn[NumberOfBalls+1] <- whichball # add another same colored ball to the urn 
+      NumberOfBalls = NumberOfBalls+1 # the number of balls will add 1
+    }
+  }
+  return(Urn)
+}
+
+# function to count how many colors there are in the urn
+NumberColors<-function(ThisUrn){
+  freq <-as.data.frame(table(ThisUrn))
+  return(nrow(freq))
+}
+
+# here's the loop for the rejection method
+start_time1 <- Sys.time()
+for (i in 1:NoReps){
+    HowManyColorsObserved<- -9  
+    while (HowManyColorsObserved != HowManyColorsNeeded) {
+        ThisWeight<-runif(1, 0, MaxWeight)  # Sample a weight
+        MyUrn<-Urn(ThisWeight,NoOfBalls)  # simulate the urn using this weight
+        HowManyColorsObserved<-NumberColors(MyUrn)  # count how many colors in the urn
+    }
+    AcceptedWeights[i]<-ThisWeight  #save the weight
+}
+end_time1 <- Sys.time()
+cat("\n t=", end_time1 - start_time1, "minutes")
+
+# plot the histogram
+hist(AcceptedWeights, breaks = 50)  
+```
